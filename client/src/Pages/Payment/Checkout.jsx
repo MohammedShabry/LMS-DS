@@ -1,85 +1,73 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
 import Layout from "../../Layout/Layout";
-import { BiRupee } from "react-icons/bi";
-import toast from "react-hot-toast";
-import { useLocation } from 'react-router-dom';
-
 import { loadStripe } from "@stripe/stripe-js";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 
-const public_stripe_key = "pk_test_51PFwGfFrbv2S9033dnBx0eoFHI4FNU1cKyW7ZqkylY4tCRKRru8wAxcbmmSwT2cVUulOscwXz1AeDTtpz6i6IKoD00fVvIzzmH";
+const public_stripe_key = "pk_test_51PGZAwBQcpRS4FFbPsaZRZaOXcHTemtOHz448lachZeief6goRcLj2lFrehZf281wNESr7dxIbCYzNXrHTTbclIQ00VhxU00sY";
 
 export default function Checkout() {
-  const navigate = useNavigate();
-
-  // Retrieve the price from the location state
   const { state } = useLocation();
-  const {userInfo} = useSelector((state) => state.signIn)
+  const { userInfo } = useSelector((state) => state.signIn);
   const price = state?.price;
   const courseId = state?.courseId;
   const description = state?.description; 
   const numberOfLectures = state?.numberOfLectures; 
   const status = state?.status;
   const title = state?.title;
- const userId = userInfo.userId
-
-  console.log(price , courseId , description , numberOfLectures ,  status , userId , title)
-  
-
+  const userId = userInfo.userId;
 
   const handleSubscription = async (e) => {
     e.preventDefault();
 
-    savePaymentDetails()
+    try {
+      const requestBody = {
+        courseId: courseId,
+        description: description,
+        numberOfLectures: numberOfLectures,
+        status: status,
+        userId: userId,
+        price: price,
+      };
 
-    const requestBody = {
-      courseId: courseId,
-      description: description,
-      numberOfLectures: numberOfLectures,
-      status: status,
-      userId: userId,
-      price:price,
+      // Save payment details
+      await savePaymentDetails();
 
-    };
+      const stripePromise = await loadStripe(public_stripe_key);
+      const response = await fetch(
+        "http://localhost:3001/create-stripe-session-subscription",
+        {
+          method: "POST",
+          headers: { "Content-Type": "Application/JSON" },
+          body: JSON.stringify(requestBody),
+        }
+      );
 
-    const stripePromise = await loadStripe(public_stripe_key);
-    const response = await fetch(
-      "http://localhost:3001/create-stripe-session-subscription",
-      {
-        method: "POST",
-        headers: { "Content-Type": "Application/JSON" },
-        body: JSON.stringify([
-          {item: "Online Video Editor" , qty: "3" , itemCode:"99"}
-        ]),
+      if (response.status === 409) {
+        const data = await response.json();
+        if (data && data.redirectUrl) {
+          window.location.href = data.redirectUrl; // Redirect to billing portal if user is already subscribed
+        }
+      } else {
+        const session = await response.json();
+        stripePromise.redirectToCheckout({
+          sessionId: session.id,
+        });
       }
-    );
-
-    if (response.status === 409) {
-      const data = await response.json();
-      if (data && data.redirectUrl) {
-        window.location.href = data.redirectUrl; // redirect to billing portal if user is already subscribed
-      }
-    } else {
-      const session = await response.json();
-      stripePromise.redirectToCheckout({
-        sessionId: session.id,
-        successUrl: `${window.location.origin}/checkout/success`, // Specify success URL
-        cancelUrl: `${window.location.origin}/checkout`, // Specify cancel URL
-      });
+    } catch (error) {
+      console.error("Error handling subscription:", error);
+      // Handle error gracefully
     }
   };
 
-  const savePaymentDetails = async (paymentDetails) => {
-
-    const requestBody = {
-      courseId: courseId,
-      userId: userId,
-      price:price,
-      title:title
-
-    };
+  const savePaymentDetails = async () => {
     try {
+      const requestBody = {
+        courseId: courseId,
+        userId: userId,
+        price: price,
+        title: title
+      };
       await fetch("http://localhost:3000/admin/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,7 +75,7 @@ export default function Checkout() {
       });
     } catch (error) {
       console.error("Error saving payment details:", error);
-      // Handle error
+      // Handle error gracefully
       throw error;
     }
   };
@@ -112,7 +100,7 @@ export default function Checkout() {
 
               <p className="flex items-center justify-center gap-1 text-2xl font-bold text-yellow-500">
                 LKR:
-                <span>{state.price}</span>
+                <span>{price}</span>
               </p>
 
               <div className="text-xs">

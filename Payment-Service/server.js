@@ -36,6 +36,8 @@ app.use(bodyParser.raw({ type: "application/json" }));
 app.post("/create-stripe-session-subscription", async (req, res) => {
   const { courseId, description, numberOfLectures, status, userId } = req.body;
 
+  
+
   const userEmail = "tharudhananjaya2222@gmail.com"; // Replace with actual user email
   let customer;
   const auth0UserId = userEmail;
@@ -43,7 +45,7 @@ app.post("/create-stripe-session-subscription", async (req, res) => {
   // Try to retrieve an existing customer by email
   const existingCustomers = await stripe.customers.list({
     email: userEmail,
-    limit: 1,
+    limit: 10,
   });
 
   //   console.log(existingCustomers);
@@ -56,7 +58,7 @@ app.post("/create-stripe-session-subscription", async (req, res) => {
     const subscriptions = await stripe.subscriptions.list({
       customer: customer.id,
       status: "active",
-      limit: 1,
+      limit: 10,
     });
 
     if (subscriptions.data.length > 0) {
@@ -85,20 +87,17 @@ app.post("/create-stripe-session-subscription", async (req, res) => {
     success_url: "http://localhost:3000/success",
     cancel_url: "http://localhost:3000/cancel",
     payment_method_types: ["card"],
-    mode: "subscription",
+    mode: "payment",
     billing_address_collection: "auto",
     line_items: [
       {
         price_data: {
           currency: "lkr",
           product_data: {
-            name: "Online Video Editor",
-            description: "Unlimited Viedo Edits!",
+            name: "JavaScript Course for Beginners",
+            description: "JavaScript is a high-level, often just-in-time compiled language.",
           },
-          unit_amount: 20000,
-          recurring: {
-            interval: "month",
-          },
+          unit_amount: 500000,
         },
         quantity: 1,
       },
